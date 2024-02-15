@@ -1,6 +1,10 @@
 
-{-# LANGUAGE ScopedTypeVariables, DataKinds, ExistentialQuantification, StandaloneDeriving #-}
-module Load where
+-- | Loading files (witness, prover key, circuit...)
+
+{-# LANGUAGE ScopedTypeVariables, DataKinds, TypeApplications, 
+             ExistentialQuantification, StandaloneDeriving 
+  #-}
+module ZK.Groth16.Load where
 
 --------------------------------------------------------------------------------
 
@@ -16,9 +20,9 @@ import ZK.Algebra.Class.Pairing
 import ZK.Algebra.Curves.BN128     ()      -- importing just the...
 import ZK.Algebra.Curves.BLS12_381 ()      -- ...PairingCurve instances
 
-import Glue 
-import Types
-import Some
+import ZK.Groth16.Types
+import ZK.Groth16.Aux.Glue 
+import ZK.Groth16.Aux.Some
 
 --------------------------------------------------------------------------------
 

@@ -2,8 +2,8 @@
 -- | Glue between the binary formats (which does not depend on the algebra backend)
 -- and the proper types
 
-{-# LANGUAGE DataKinds, KindSignatures, ScopedTypeVariables, StandaloneDeriving #-}
-module Glue where
+{-# LANGUAGE DataKinds, KindSignatures, ScopedTypeVariables, TypeApplications, StandaloneDeriving #-}
+module ZK.Groth16.Aux.Glue where
 
 --------------------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ import           ZK.Formats.ForeignArray
 import ZK.Algebra.API
 import ZK.Algebra.Class.Pairing 
 
-import Types
+import ZK.Groth16.Types
 
 --------------------------------------------------------------------------------
 

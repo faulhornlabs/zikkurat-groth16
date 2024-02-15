@@ -1,6 +1,10 @@
 
-{-# LANGUAGE ScopedTypeVariables, DataKinds, ExistentialQuantification, StandaloneDeriving #-}
-module Some where
+-- | Existential wrapper
+
+{-# LANGUAGE ScopedTypeVariables, DataKinds, ExistentialQuantification, 
+             Rank2Types, StandaloneDeriving, FlexibleInstances 
+  #-}
+module ZK.Groth16.Aux.Some where
 
 --------------------------------------------------------------------------------
 
@@ -9,7 +13,7 @@ import Data.Proxy
 import ZK.Algebra.API
 import ZK.Algebra.Class.Pairing 
 
-import Types
+import ZK.Groth16.Types
 
 --------------------------------------------------------------------------------
 

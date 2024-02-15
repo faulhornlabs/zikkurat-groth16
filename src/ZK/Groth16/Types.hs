@@ -1,7 +1,8 @@
 
+-- | Type definitions
 
 {-# LANGUAGE DataKinds, KindSignatures, ScopedTypeVariables, StandaloneDeriving #-}
-module Types where
+module ZK.Groth16.Types where
 
 --------------------------------------------------------------------------------
 

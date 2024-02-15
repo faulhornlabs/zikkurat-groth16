@@ -7,3 +7,4 @@ dist-newstyle
 _bck*
 not_ready
 tmp
+build.sh

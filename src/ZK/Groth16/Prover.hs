@@ -1,6 +1,8 @@
 
+-- | The Groth16 prover
+
 {-# LANGUAGE ScopedTypeVariables, TypeApplications, DeriveFunctor #-}
-module Prover where
+module ZK.Groth16.Prover where
 
 --------------------------------------------------------------------------------
 
@@ -16,7 +18,7 @@ import qualified Data.IntMap.Strict as IntMap; import Data.IntMap.Strict (IntMap
 import ZK.Algebra.API
 import ZK.Algebra.Class.Pairing 
 
-import Types
+import ZK.Groth16.Types
 
 --------------------------------------------------------------------------------
 

@@ -1,6 +1,8 @@
 
+-- | The Groth16 verifier
+
 {-# LANGUAGE ScopedTypeVariables, TypeApplications, DeriveFunctor #-}
-module Verifier where
+module ZK.Groth16.Verifier where
 
 --------------------------------------------------------------------------------
 
@@ -10,7 +12,7 @@ import Data.Proxy
 import ZK.Algebra.API
 import ZK.Algebra.Class.Pairing 
 
-import Types
+import ZK.Groth16.Types
 
 --------------------------------------------------------------------------------
 
