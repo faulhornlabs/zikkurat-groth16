@@ -36,6 +36,7 @@ Library
   Build-Depends:        base >= 4 && <5, 
                         filepath >= 1.4 && < 2.0,
                         containers >= 0.5 && < 1.0,
+                        clock >= 0.8 && < 1.0,
                         zikkurat-algebra >= 0.0.1 && < 0.1,
                         zikkurat-formats-binary >= 0.1 && < 0.5
 
@@ -43,9 +44,13 @@ Library
                         ZK.Groth16.Prover
                         ZK.Groth16.Verifier
                         ZK.Groth16.Load
+                        ZK.Groth16.JSON
                         ZK.Groth16.Types
                         ZK.Groth16.Aux.Glue
                         ZK.Groth16.Aux.Some
+                        ZK.Groth16.Aux.Time
+
+  Other-modules:        Paths_zikkurat_groth16
 
   Default-Language:     Haskell2010
   Default-Extensions:   CPP, BangPatterns
@@ -56,3 +61,15 @@ Library
 
 --------------------------------------------------------------------------------
 
+executable zikkurat-groth16
+
+  build-depends:       base >= 4 && < 5, 
+                       optparse-applicative >= 0.16,
+                       zikkurat-algebra >= 0.0.1 && < 0.1,
+                       zikkurat-groth16
+
+  hs-source-dirs:      cli
+  main-is:             CLI.hs
+  Default-Language:    Haskell2010
+
+--------------------------------------------------------------------------------

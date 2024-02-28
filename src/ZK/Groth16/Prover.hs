@@ -19,6 +19,7 @@ import ZK.Algebra.API
 import ZK.Algebra.Class.Pairing 
 
 import ZK.Groth16.Types
+import ZK.Groth16.Aux.Time
 
 --------------------------------------------------------------------------------
 
@@ -80,6 +81,7 @@ fromSparseVec n table = packFlatArrayFromList' n [ f i | i<-[0..n-1] ] where
 powersOfEta :: forall c. PairingCurve c => Proxy c -> Int -> Fr c -> FlatArray (Fr c)
 powersOfEta pxy n eta = powers 1 eta n
 
+{-
 shiftEvalDomain :: forall c. PairingCurve c => Proxy c -> FFTDomain (Fr c) -> Fr c -> FlatArray (Fr c) -> FlatArray (Fr c)
 shiftEvalDomain pxy domain eta arr = runIdentity $ shiftEvalDomains pxy domain eta (Identity arr) 
 
@@ -92,6 +94,16 @@ shiftEvalDomains pxy domain eta arrs = fmap f arrs where
     coeffs' = pwMul (coeffsFlatArr poly) pows 
     poly'   = mkPolyFlat coeffs'
     arr'    = ntt @(Poly c) domain poly'
+-}
+
+shiftEvalDomain :: forall c. PairingCurve c => Proxy c -> FFTDomain (Fr c) -> Fr c -> FlatArray (Fr c) -> FlatArray (Fr c)
+shiftEvalDomain pxy domain eta arr 
+  =         ntt @(Poly c) domain  
+  $ shiftedINTT @(Poly c) domain eta 
+  $ arr
+
+shiftEvalDomains :: forall f c. (Functor f, PairingCurve c) => Proxy c -> FFTDomain (Fr c) -> Fr c -> f (FlatArray (Fr c)) -> f (FlatArray (Fr c))
+shiftEvalDomains pxy domain eta = fmap (shiftEvalDomain pxy domain eta) 
 
 --------------------------------------------------------------------------------
 
@@ -147,8 +159,9 @@ computeQuotientPointwise pxy abc@(ABC az bz cz)
     ys = vecScale invZ1 (pwMulSub az1 bz1 cz1) :: Column c
     q1 = intt @(Poly c) dom ys
 
-    pows = powersOfEta pxy n (inverse eta) 
-    cs   = pwMul pows (unwrapArray q1 :: Column c)
+    cs = mulByPowers 1 (inverse eta) (unwrapArray q1 :: Column c)
+    -- pows = powersOfEta pxy n (inverse eta) 
+    -- cs   = pwMul pows (unwrapArray q1 :: Column c)
 
 ----------------------------------------
 
@@ -177,6 +190,7 @@ computeSnarkjsScalarCoeffs pxy abc@(ABC az bz cz)
     ys = pwMulSub az1 bz1 cz1
 
 --------------------------------------------------------------------------------
+-- * Main prover
 
 computeScalarCoeffs :: PairingCurve c => Proxy c -> ABC (Column c) -> Flavour -> FlatArray (Fr c)
 computeScalarCoeffs pxy abc flavour = case flavour of
@@ -197,17 +211,74 @@ proveWithMask pxy zkey witness@(Witness zs) (Mask r s) = Proof piA piB piC where
   vpts   = _zkeyVPoints zkey
   ppts   = _zkeyPPoints zkey
 
-  abc = buildABC pxy zkey witness
-  qs  = computeScalarCoeffs pxy abc (_flavour header)
-
   m = _nvars      header
   n = _domainSize header
+
+  priv = msm (dropFlatArray (_npub header + 1) zs) (_pointsC ppts)
+
+  abc = buildABC pxy zkey witness
+  qs  = computeScalarCoeffs pxy abc (_flavour header)
   piA = _alpha1 spec <+> msm zs (_pointsA  ppts) <+> (r <**> _delta1 spec)
   rho = _beta1  spec <+> msm zs (_pointsB1 ppts) <+> (s <**> _delta1 spec)
   piB = _beta2  spec <+> msm zs (_pointsB2 ppts) <+> (s <**> _delta2 spec)
   piC = priv <+> msm qs (_pointsH ppts) <+> (s <**> piA) <+> (r <**> rho) <-> ((r*s) <**> _delta1 spec)
 
-  priv = msm (dropFlatArray (_npub header + 1) zs) (_pointsC ppts)
+--------------------------------------------------------------------------------
+-- * IO version
+
+data Masking 
+  = TrueZK 
+  | ZeroMask 
+  deriving (Eq,Show)
+
+proveIO :: forall c. PairingCurve c => Proxy c -> Bool -> Masking -> ZKey c -> Witness c -> IO (Proof c)
+proveIO pxy detailsFlag masking zkey wtns = do
+  mask <- case masking of
+    ZeroMask -> return (Mask 0 0)
+    TrueZK   -> rndMask 
+  proveWithMaskIO pxy detailsFlag zkey wtns mask
+
+proveWithMaskIO :: forall c. PairingCurve c => Proxy c -> Bool -> ZKey c -> Witness c -> Mask (Fr c) -> IO (Proof c)
+proveWithMaskIO pxy detailsFlag zkey witness@(Witness zs) (Mask r s) = do
+
+  let header = _zkeyHeader  zkey
+  let spec   = _zkeySpec    zkey
+  let coeffs = _zkeyCoeffs  zkey
+  let vpts   = _zkeyVPoints zkey
+  let ppts   = _zkeyPPoints zkey
+
+  let m = _nvars      header
+  let n = _domainSize header
+
+  let priv = msm (dropFlatArray (_npub header + 1) zs) (_pointsC ppts)
+
+  abc <- printMeasureTime detailsFlag "building ABC       " $ return $ buildABC pxy zkey witness
+  qs  <- printMeasureTime detailsFlag "computing quotient " $ return $ computeScalarCoeffs pxy abc (_flavour header)
+  piA <- printMeasureTime detailsFlag "calculating piA    " $ return $ _alpha1 spec <+> msm zs (_pointsA  ppts) <+> (r <**> _delta1 spec)
+  rho <- printMeasureTime detailsFlag "calculating rho    " $ return $ _beta1  spec <+> msm zs (_pointsB1 ppts) <+> (s <**> _delta1 spec)
+  piB <- printMeasureTime detailsFlag "calculating piB    " $ return $ _beta2  spec <+> msm zs (_pointsB2 ppts) <+> (s <**> _delta2 spec)
+  piC <- printMeasureTime detailsFlag "calculating piC    " $ return $ priv <+> msm qs (_pointsH ppts) <+> (s <**> piA) <+> (r <**> rho) <-> ((r*s) <**> _delta1 spec)
+
+{-
+  let abc = buildABC pxy zkey witness
+  let qs  = computeScalarCoeffs pxy abc (_flavour header)
+  let piA = _alpha1 spec <+> msm zs (_pointsA  ppts) <+> (r <**> _delta1 spec)
+  let rho = _beta1  spec <+> msm zs (_pointsB1 ppts) <+> (s <**> _delta1 spec)
+  let piB = _beta2  spec <+> msm zs (_pointsB2 ppts) <+> (s <**> _delta2 spec)
+  let piC = priv <+> msm qs (_pointsH ppts) <+> (s <**> piA) <+> (r <**> rho) <-> ((r*s) <**> _delta1 spec)
+-}
+
+  return (Proof piA piB piC)
+
+--------------------------------------------------------------------------------
+
+extractPublicIO :: forall c. PairingCurve c => Proxy c -> ZKey c -> Witness c -> PublicIO c
+extractPublicIO pxy zkey (Witness zs) 
+  = PublicIO 
+  $ dropFlatArray 1 
+  $ takeFlatArray (_npub header + 1) zs
+  where
+    header = _zkeyHeader  zkey
 
 --------------------------------------------------------------------------------
 

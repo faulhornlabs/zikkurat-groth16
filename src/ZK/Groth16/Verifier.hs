@@ -16,6 +16,12 @@ import ZK.Groth16.Types
 
 --------------------------------------------------------------------------------
 
+verifyIO :: PairingCurve c => Proxy c -> VKey c -> Proof c -> PublicIO c -> IO Bool
+verifyIO pxy vkey proof pubio = do
+  return (verify pxy vkey proof pubio)
+
+--------------------------------------------------------------------------------
+
 verify :: PairingCurve c => Proxy c -> VKey c -> Proof c -> PublicIO c -> Bool
 verify pxy (VKey spec vpoints alphaBeta) (Proof piA piB piC) (PublicIO pubIO) = ok where
 

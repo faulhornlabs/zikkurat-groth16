@@ -12,8 +12,10 @@ This implementation is compatible with the [`circom`](https://docs.circom.io/) +
 
 ### TODO
 
-- [ ] make a CLI interface
+- [x] make a CLI interface
+- [ ] add example
 - [ ] JSON export/import of proofs and public IO
+- [ ] optimizing "building ABC"
 - [ ] multithreading support 
 - [ ] load `.r1cs` files 
 - [ ] generate fake circuit-specific setup ourselves
