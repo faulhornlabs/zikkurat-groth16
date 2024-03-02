@@ -81,8 +81,8 @@ inputFiles (InOutFiles{..}) = catMaybes
   ]
 
 data RawInOutData = RawInOutData 
-  { _rawZkey  :: !(Direction  Fmt.ZKey    )
-  , _rawVkey  :: !(Direction  RawVKey    )
+  { _rawZkey  :: !(Direction  Fmt.ZKey2   )
+  , _rawVkey  :: !(Direction  RawVKey     )
   , _rawWtns  :: !(Direction  Fmt.Witness )
   , _rawR1CS  :: !(Direction  Fmt.R1CS    )
   , _rawProof :: !(Direction Json.RawProof)
@@ -168,7 +168,7 @@ loadEverything printFlag hint fpaths = convertEverything printFlag hint =<< load
 
 loadEverythingRaw :: Bool -> InOutFiles -> IO RawInOutData
 loadEverythingRaw printFlag fpaths = do
-  !zkey  <- loadWithTime printFlag  Fmt.parseZKeyFile_   (_fileZkey      fpaths)
+  !zkey  <- loadWithTime printFlag  Fmt.parseZKeyFile2_  (_fileZkey      fpaths)
   !vkey  <- loadWithTime printFlag    loadRawVKeyFile_   (_fileVkey      fpaths)
   !wtns  <- loadWithTime printFlag  Fmt.parseWtnsFile_   (_fileWtns      fpaths)
   !r1cs  <- loadWithTime printFlag  Fmt.parseR1CSFile_   (_fileR1CS      fpaths)
@@ -267,7 +267,7 @@ loadWithTime flag action (Input fn) = printMeasureTime flag ("loading `" ++ fn +
 loadWithTime _    _      _          = return None
 
 convertWithTime :: Functor f => Bool -> String -> (a -> b) -> f a -> IO (f b)
-convertWithTime flag text fun !x = printMeasureTime flag ("converting " ++ text) $ do { let !y = fmap fun x in y `seq` return y }
+convertWithTime True text fun !x = printMeasureTime True ("converting " ++ text) $ do { let !y = fmap fun x in y `seq` return y }
 convertWithTime _    text fun !x = return $! (fmap fun x)
 
 saveWith :: (a -> b -> IO ()) -> Direction a -> Direction b -> IO ()

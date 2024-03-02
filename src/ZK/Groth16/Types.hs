@@ -13,6 +13,7 @@ import ZK.Algebra.Class.Field
 import ZK.Algebra.Class.Curve  
 import ZK.Algebra.Class.Pairing 
 import ZK.Algebra.Class.Flat
+import ZK.Algebra.Class.Vector
 import ZK.Algebra.Class.Misc
 
 --------------------------------------------------------------------------------
@@ -116,10 +117,11 @@ data VKey (c :: SomeCurve) = VKey
 -- | Prover key
 data ZKey (c :: SomeCurve) = ZKey
   { _zkeyHeader  :: !Groth16Header
-  , _zkeySpec    :: !(SpecPoints c)
-  , _zkeyCoeffs  :: ![ZKeyCoeff  c] 
-  , _zkeyVPoints :: !(VerifierPoints c) 
-  , _zkeyPPoints :: !(ProverPoints   c)
+  , _zkeySpec    :: !(SpecPoints       c )
+  , _zkeyMatrixA :: !(SparseMatrix (Fr c))
+  , _zkeyMatrixB :: !(SparseMatrix (Fr c))
+  , _zkeyVPoints :: !(VerifierPoints   c ) 
+  , _zkeyPPoints :: !(ProverPoints     c )
   }
  
 extractVKey :: PairingCurve c => Proxy c -> ZKey c -> VKey c

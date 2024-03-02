@@ -97,7 +97,7 @@ convertGroth16Header !old = MkGroth16Header
 
 --------------------------------------------------------------------------------
 
-convertZKey :: CurveHint -> Fmt.ZKey -> SomeWithProxy ZKey
+convertZKey :: CurveHint -> Fmt.ZKey2 -> SomeWithProxy ZKey
 convertZKey !hint !old = 
   case hint of 
     Just curve -> newZKey $ curve
@@ -105,7 +105,94 @@ convertZKey !hint !old =
   where  
     newZKey curve = case someCurveProxy curve of 
       MkSome pxy -> MkSome (WithProxy pxy (convertZKey' pxy old))
+
+convertZKey' :: forall c. PairingCurve c => Proxy c -> Fmt.ZKey2 -> ZKey c
+convertZKey' pxy !old 
+  | pxyCurve /= hdrCurve = error $ "convertZKey': incompatible elliptic curves: " ++ quotedCurve hdrCurve ++ " vs. " ++ quotedCurve pxyCurve
+  | otherwise            = ZKey
+    { _zkeyHeader  = newHeader 
+    , _zkeySpec    = newSpec   
+    , _zkeyMatrixA = matA
+    , _zkeyMatrixB = matB
+    , _zkeyVPoints = newVPoints
+    , _zkeyPPoints = newPPoints
+    }
+  where
+    pxyCurve = lowerSomeCurve pxy
+    hdrCurve = _curve newHeader
+
+    -- n = _domainSize newHeader
+    -- m = _nvars      newHeader
+
+    !newHeader    = convertGroth16Header      (Fmt._zkeyHeader  old)
+    !newSpec      = convertSpecPoints     pxy (Fmt._zkeySpec    old)
+    !newVPoints   = convertVerifierPoints pxy (Fmt._zkeyVPoints old)
+    !newPPoints   = convertProverPoints   pxy (Fmt._zkeyPPoints old)
+    (!matA,!matB) = convertZKeyMatrices   pxy (Fmt._zkeyCoeffs  old)
+
+convertZKeyMatrices :: forall c. PairingCurve c => Proxy c -> (Fmt.SparseMatrix, Fmt.SparseMatrix) -> (SparseMatrix (Fr c), SparseMatrix (Fr c))
+convertZKeyMatrices pxy (oldMatA, oldMatB) =
+  ( convertZKeyMatrix pxy oldMatA
+  , convertZKeyMatrix pxy oldMatB
+  ) 
+  
+convertZKeyMatrix :: forall c. PairingCurve c => Proxy c -> Fmt.SparseMatrix -> SparseMatrix (Fr c)
+convertZKeyMatrix pxy (Fmt.SparseMatrix dims rowIdxs colIdxs values) = 
+  MkSparseMatrix
+    {  _sparseDims   = dims
+    , _sparseRowIdxs = fromIntArray              rowIdxs
+    , _sparseColIdxs = fromIntArray              colIdxs
+    , _sparseCoeffs  = fromDoubleMontFrArray pxy values
+    }
+
+--------------------------------------------------------------------------------
+
+{-
+-- converting from list fof coeffs; 
+-- this is slow because the zikkurat-formats-binary lib has very slow conversion
+
+data Entry a = Entry 
+  { _entryRow :: !Int 
+  , _entryCol :: !Int
+  , _entryVal :: !a
+  }
+  deriving Show
+
+convertZKeyCoeffs :: forall c. PairingCurve c => Proxy c -> (Int,Int) -> [Fmt.ZKeyCoeff] -> (SparseMatrix (Fr c), SparseMatrix (Fr c))
+convertZKeyCoeffs pxy nm coeffs = (matA, matB) where
+  (listA, listB) = splitCoeffs coeffs
+  !matA = packMatrix listA
+  !matB = packMatrix listB
+
+  packMatrix :: [Entry (Fr c)] -> SparseMatrix (Fr c)
+  packMatrix entries = MkSparseMatrix nm rowIdxs colIdxs coeffVec where
+    k = length entries
+    rowIdxs  = packFlatArrayFromList' k (map _entryRow entries)
+    colIdxs  = packFlatArrayFromList' k (map _entryCol entries)
+    coeffVec = packFlatArrayFromList' k (map _entryVal entries)
+
+  splitCoeffs :: [Fmt.ZKeyCoeff] -> ( [Entry (Fr c)], [Entry (Fr c)] )
+  splitCoeffs = go [] [] where
+    go as bs []          = (as,bs)
+    go as bs (this:rest) = 
+      case Fmt._matrixSel this of
+        Fmt.MatrixA -> go (new:as) bs rest
+        Fmt.MatrixB -> go as (new:bs) rest
+        Fmt.MatrixC -> error "convertZKeyCoeffs: matrix C selector; this should not happen"
+      where
+        new = Entry 
+          { _entryRow = Fmt._row    this
+          , _entryCol = Fmt._column this
+          , _entryVal = fromInteger (Fmt.fromStdFr (Fmt._value this))
+          }
+-}
+
+--------------------------------------------------------------------------------
  
+{-
+-- legacy version 
+-- this was _extremely slow_ 
+
 convertZKey' :: forall c. PairingCurve c => Proxy c -> Fmt.ZKey -> ZKey c
 convertZKey' pxy !old 
   | pxyCurve /= hdrCurve = error $ "convertZKey': incompatible elliptic curves: " ++ quotedCurve hdrCurve ++ " vs. " ++ quotedCurve pxyCurve
@@ -131,8 +218,6 @@ strictMap f = go where
   go (x:xs) = let !y = f x in y `seq` (y : go xs)
   go []     = []
 
---------------------------------------------------------------------------------
-
 convertZKeyCoeff :: PairingCurve c => Proxy c -> Fmt.ZKeyCoeff -> ZKeyCoeff c
 convertZKeyCoeff pxy !old = ZKeyCoeff
   { _matrixSel = convertMatrixSel (Fmt._matrixSel old)
@@ -146,6 +231,7 @@ convertMatrixSel !old = case old of
   Fmt.MatrixA -> MatrixA  
   Fmt.MatrixB -> MatrixB  
   Fmt.MatrixC -> MatrixC 
+-}
 
 --------------------------------------------------------------------------------
 
@@ -203,6 +289,18 @@ fromSingletonG2 _pxy (Fmt.SingletonG2 (Fmt.G2Array farr)) = unsafePerformIO $ do
   x <- singletonForeignArrayToFlatIO farr
   convertInfinityIO x
   return x
+
+--------------------------------------------------------------------------------
+
+fromIntArray :: Fmt.IntArray -> FlatArray Int
+fromIntArray (Fmt.IntArray arr) = (foreignArrayToFlatArray arr)
+
+-- hackety hack hack 
+fromDoubleMontFrArray :: forall c. PairingCurve c => Proxy c -> Fmt.DoubleMontFrArray -> FlatArray (Fr c)
+fromDoubleMontFrArray pxy (Fmt.DoubleMontFrArray arr) = unsafePerformIO $ do
+  let flatarr  = foreignArrayToFlatArray arr  :: FlatArray (Fr    c)
+  let flatarr' = batchToStandardRep  flatarr  :: FlatArray (StdFr c)
+  return (unsafeCastFlatArray flatarr')
 
 --------------------------------------------------------------------------------
 

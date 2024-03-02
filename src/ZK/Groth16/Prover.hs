@@ -48,6 +48,23 @@ type Column c = FlatArray (Fr c)
 
 buildABC :: forall c. PairingCurve c => Proxy c -> ZKey c -> Witness c -> ABC (Column c)
 buildABC pxy zkey (Witness zvec) = abc where
+
+  header = _zkeyHeader  zkey
+  m = _nvars      header
+  n = _domainSize header 
+
+  abc = ABC vecA vecB vecC
+
+  !vecA = sparseMatrixMul (_zkeyMatrixA zkey) zvec
+  !vecB = sparseMatrixMul (_zkeyMatrixB zkey) zvec
+  !vecC = pwMul vecA vecB
+
+----------------------------------------
+
+{-
+-- legacy version
+buildABC :: forall c. PairingCurve c => Proxy c -> ZKey c -> Witness c -> ABC (Column c)
+buildABC pxy zkey (Witness zvec) = abc where
   
   header = _zkeyHeader  zkey
   coeffs = _zkeyCoeffs  zkey  
@@ -73,6 +90,7 @@ buildABC pxy zkey (Witness zvec) = abc where
 fromSparseVec :: (Flat a, Num a) => Int -> IntMap a -> FlatArray a 
 fromSparseVec n table = packFlatArrayFromList' n [ f i | i<-[0..n-1] ] where
   f !i = IntMap.findWithDefault (fromInteger 0) i table
+-}
 
 --------------------------------------------------------------------------------
 -- * Shift evaluation domains
@@ -207,7 +225,6 @@ proveWithMask pxy zkey witness@(Witness zs) (Mask r s) = Proof piA piB piC where
 
   header = _zkeyHeader  zkey
   spec   = _zkeySpec    zkey
-  coeffs = _zkeyCoeffs  zkey
   vpts   = _zkeyVPoints zkey
   ppts   = _zkeyPPoints zkey
 
@@ -243,7 +260,6 @@ proveWithMaskIO pxy detailsFlag zkey witness@(Witness zs) (Mask r s) = do
 
   let header = _zkeyHeader  zkey
   let spec   = _zkeySpec    zkey
-  let coeffs = _zkeyCoeffs  zkey
   let vpts   = _zkeyVPoints zkey
   let ppts   = _zkeyPPoints zkey
 
