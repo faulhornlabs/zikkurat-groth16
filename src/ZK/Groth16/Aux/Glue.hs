@@ -262,6 +262,31 @@ convertVerifierPoints pxy !old = VerifierPoints
 --------------------------------------------------------------------------------
 -- * Helpers
 
+fromG1Array :: PairingCurve c => Proxy c -> Fmt.G1Array -> FlatArray (G1 c)
+fromG1Array _pxy (Fmt.G1Array farr) = foreignArrayToFlatArray farr
+
+fromG2Array :: PairingCurve c => Proxy c -> Fmt.G2Array -> FlatArray (G2 c)
+fromG2Array _pxy (Fmt.G2Array farr) = foreignArrayToFlatArray farr
+
+fromSingletonG1 :: PairingCurve c => Proxy c -> Fmt.SingletonG1 -> G1 c
+fromSingletonG1 _pxy (Fmt.SingletonG1 (Fmt.G1Array farr)) = peekFlatArray (foreignArrayToFlatArray farr) 0
+
+fromSingletonG2 :: PairingCurve c => Proxy c -> Fmt.SingletonG2 -> G2 c
+fromSingletonG2 _pxy (Fmt.SingletonG2 (Fmt.G2Array farr)) = peekFlatArray (foreignArrayToFlatArray farr) 0
+
+toG1Array :: PairingCurve c => Proxy c -> FlatArray (G1 c) -> Fmt.G1Array
+toG1Array pxy = Fmt.G1Array . flatArrayToForeignArray 
+
+toG2Array :: PairingCurve c => Proxy c -> FlatArray (G2 c) -> Fmt.G2Array
+toG2Array pxy = Fmt.G2Array . flatArrayToForeignArray 
+
+toSingletonG1 :: PairingCurve c => Proxy c -> G1 c -> Fmt.SingletonG1
+toSingletonG1 pxy = Fmt.SingletonG1 . Fmt.G1Array . singletonFlatToForeignArray
+
+toSingletonG2 :: PairingCurve c => Proxy c -> G2 c -> Fmt.SingletonG2
+toSingletonG2 pxy = Fmt.SingletonG2 . Fmt.G2Array . singletonFlatToForeignArray
+
+{-
 {-# NOINLINE fromG1Array #-}
 fromG1Array :: PairingCurve c => Proxy c -> Fmt.G1Array -> FlatArray (G1 c)
 fromG1Array _pxy (Fmt.G1Array farr) = unsafePerformIO $ do
@@ -289,6 +314,7 @@ fromSingletonG2 _pxy (Fmt.SingletonG2 (Fmt.G2Array farr)) = unsafePerformIO $ do
   x <- singletonForeignArrayToFlatIO farr
   convertInfinityIO x
   return x
+-}
 
 --------------------------------------------------------------------------------
 
@@ -308,6 +334,13 @@ foreignArrayToFlatArray :: forall a. Flat a => ForeignArray -> FlatArray a
 foreignArrayToFlatArray (ForeignArray len (ElementSize sz) fptr) 
   | sz == sizeInBytes (Proxy @a)  = MkFlatArray len (castForeignPtr fptr)
   | otherwise = error "foreignArrayToFlatArray: incompatible element sizes"
+
+flatArrayToForeignArray :: forall a. Flat a => FlatArray a -> ForeignArray 
+flatArrayToForeignArray (MkFlatArray len fptr) = ForeignArray len (ElementSize sz) (castForeignPtr fptr) where
+  sz = sizeInBytes (Proxy @a)
+
+singletonFlatToForeignArray :: forall a. Flat a => a -> ForeignArray 
+singletonFlatToForeignArray x = flatArrayToForeignArray (singletonArray x)
 
 {-# NOINLINE singletonForeignArrayToFlatIO #-}
 singletonForeignArrayToFlatIO :: forall a. Flat a => ForeignArray -> IO a
